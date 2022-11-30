@@ -74,7 +74,14 @@ class ECLinePath extends graphic.Path<ECLineProps> {
     }
 
     buildPath(ctx: CanvasRenderingContext2D, shape: StraightLineShape | CurveShape) {
-        if (isStraightLine(shape)) {
+        // Self-loop edge
+        if(shape.x1 == shape.x2 && shape.y1 == shape.y2) {
+          (shape as CurveShape).cpx1 = shape.x1 - 15;
+          (shape as CurveShape).cpy1 = shape.y1 - 15;
+          (shape as CurveShape).cpx2 = shape.x2 - 15;
+          (shape as CurveShape).cpy2 = shape.y2 + 15;
+        }
+	if (isStraightLine(shape)) {
             straightLineProto.buildPath.call(this, ctx, shape);
         }
         else {
