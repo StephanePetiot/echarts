@@ -143,7 +143,9 @@ export interface DataHost {
     getData(dataType?: SeriesDataType): SeriesData;
 }
 
-export interface DataModel extends Model<unknown>, DataHost, DataFormatMixin {}
+export interface DataModel extends Model<unknown>, DataHost, DataFormatMixin {
+    getDataParams(dataIndex: number, dataType?: SeriesDataType, el?: Element): CallbackDataParams;
+}
     // Pick<DataHost, 'getData'>,
     // Pick<DataFormatMixin, 'getDataParams' | 'formatTooltip'> {}
 
@@ -430,7 +432,7 @@ export type DimensionLoose = DimensionName | DimensionIndexLoose;
 export type DimensionType = DataStoreDimensionType;
 
 export const VISUAL_DIMENSIONS = createHashMap<number, keyof DataVisualDimensions>([
-    'tooltip', 'label', 'itemName', 'itemId', 'itemGroupId', 'seriesName'
+    'tooltip', 'label', 'itemName', 'itemId', 'itemGroupId', 'itemChildGroupId', 'seriesName'
 ]);
 // The key is VISUAL_DIMENSIONS
 export interface DataVisualDimensions {
@@ -442,6 +444,7 @@ export interface DataVisualDimensions {
     itemName?: DimensionIndex;
     itemId?: DimensionIndex;
     itemGroupId?: DimensionIndex;
+    itemChildGroupId?: DimensionIndex;
     seriesName?: DimensionIndex;
 }
 
@@ -616,6 +619,7 @@ export type OptionDataItemObject<T> = {
     id?: OptionId;
     name?: OptionName;
     groupId?: OptionId;
+    childGroupId?: OptionId;
     value?: T[] | T;
     selected?: boolean;
 };
@@ -635,7 +639,7 @@ export interface GraphEdgeItemObject<
      */
     target?: string | number
 }
-export type OptionDataValue = string | number | Date;
+export type OptionDataValue = string | number | Date | null | undefined;
 
 export type OptionDataValueNumeric = number | '-';
 export type OptionDataValueCategory = string;
@@ -665,6 +669,7 @@ export interface OptionEncodeVisualDimensions {
     // Which is useful in prepresenting the transition key of drilldown/up animation.
     // Or hover linking.
     itemGroupId?: OptionEncodeValue;
+    childGroupdId?: OptionEncodeValue;
 }
 export interface OptionEncode extends OptionEncodeVisualDimensions {
     [coordDim: string]: OptionEncodeValue | undefined
@@ -920,6 +925,7 @@ export interface ItemStyleOption<TCbParams = never> extends ShadowOptionMixin, B
     color?: ZRColor | (TCbParams extends never ? never : ((params: TCbParams) => ZRColor))
     opacity?: number
     decal?: DecalObject | 'none'
+    borderRadius?: (number | string)[] | number | string
 }
 
 /**
@@ -1054,6 +1060,8 @@ export interface LabelOption extends TextCommonOption {
     minMargin?: number
 
     overflow?: TextStyleProps['overflow']
+    ellipsis?: TextStyleProps['ellipsis']
+
     silent?: boolean
     precision?: number | 'auto'
     valueAnimation?: boolean
@@ -1064,8 +1072,8 @@ export interface LabelOption extends TextCommonOption {
     rich?: Dictionary<TextCommonOption>
 }
 
-export interface SeriesLabelOption extends LabelOption {
-    formatter?: string | LabelFormatterCallback<CallbackDataParams>
+export interface SeriesLabelOption<T extends CallbackDataParams = CallbackDataParams> extends LabelOption {
+    formatter?: string | LabelFormatterCallback<T>
 }
 
 /**
@@ -1260,7 +1268,7 @@ export interface CommonTooltipOption<FormatterParams> {
      *
      * Will be ignored if tooltip.formatter is specified.
      */
-    valueFormatter?: (value: OptionDataValue | OptionDataValue[]) => string
+    valueFormatter?: (value: OptionDataValue | OptionDataValue[], dataIndex: number) => string
     /**
      * Absolution pixel [x, y] array. Or relative percent string [x, y] array.
      * If trigger is 'item'. position can be set to 'inside' / 'top' / 'left' / 'right' / 'bottom',
@@ -1328,6 +1336,12 @@ export interface CommonTooltipOption<FormatterParams> {
 export type ComponentItemTooltipOption<T> = CommonTooltipOption<T> & {
     // Default content HTML.
     content?: string;
+    /**
+     * Whether to encode HTML content according to `tooltip.renderMode`.
+     *
+     * e.g. renderMode 'html' needs to encode but 'richText' does not.
+     */
+    encodeHTMLContent?: boolean;
     formatterParams?: ComponentItemTooltipLabelFormatterParams;
 };
 export type ComponentItemTooltipLabelFormatterParams = {
@@ -1373,6 +1387,8 @@ export interface CommonAxisPointerOption {
     snap?: boolean
 
     triggerTooltip?: boolean
+
+    triggerEmphasis?: boolean
 
     /**
      * current value. When using axisPointer.handle, value can be set to define the initial position of axisPointer.
@@ -1668,7 +1684,7 @@ export interface SeriesStackOptionMixin {
 type SamplingFunc = (frame: ArrayLike<number>) => number;
 
 export interface SeriesSamplingOptionMixin {
-    sampling?: 'none' | 'average' | 'min' | 'max' | 'sum' | 'lttb' | SamplingFunc
+    sampling?: 'none' | 'average' | 'min' | 'max' | 'minmax' | 'sum' | 'lttb' | SamplingFunc
 }
 
 export interface SeriesEncodeOptionMixin {
@@ -1717,7 +1733,8 @@ export interface AriaLabelOption {
         separator?: {
             middle?: string;
             end?: string;
-        }
+        },
+        excludeDimensionId?: number[]
     }
 }
 
